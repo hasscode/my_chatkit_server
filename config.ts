@@ -1,68 +1,117 @@
-import type { ChatKitOptions } from "@openai/chatkit";
+/**
+ * ChatKit Server
+ *
+ * Handles authentication and session management for your ChatKit widget.
+ * Keeps your OpenAI API key secure by never exposing it to the browser.
+ */
 
-const options: ChatKitOptions = {
-  api: {
-    // TODO: configure your ChatKit API integration (URL, auth, uploads).
-  },
-  theme: {
-    colorScheme: 'dark',
-    radius: 'pill',
-    density: 'spacious',
-    color: {
-      grayscale: {
-        hue: 253,
-        tint: 3,
-        shade: -1
-      },
-      accent: {
-        primary: '#f2455562',
-        level: 1
-      }
-    },
-    typography: {
-      baseSize: 16,
-      fontFamily: '"OpenAI Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif',
-      fontFamilyMono: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace',
-      fontSources: [
-        {
-          family: 'OpenAI Sans',
-          src: 'https://cdn.openai.com/common/fonts/openai-sans/v2/OpenAISans-Regular.woff2',
-          weight: 400,
-          style: 'normal',
-          display: 'swap'
-        }
-      // ...and 7 more font sources
-      ]
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import OpenAI from 'openai';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// ✅ FIX: كان NODE_ENV غلط
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+// ✅ Detect Railway / deployed URL automatically
+const BASE_URL =
+  process.env.BASE_URL ||
+  process.env.RAILWAY_STATIC_URL ||
+  `http://localhost:${PORT}`;
+
+app.use(cors());
+app.use(express.json());
+
+// Only serve static files in development
+if (!IS_PRODUCTION) {
+  app.use(express.static('.'));
+} else {
+  app.get('/', (req, res) => {
+    res.status(403).send('Access denied. API only.');
+  });
+}
+
+// Load config from config.ts
+async function loadConfig() {
+  const configPath = join(__dirname, 'config.ts');
+  const configContent = readFileSync(configPath, 'utf-8');
+
+  const jsCode = configContent
+    .replace(/import type.*from.*;?\s*/g, '')
+    .replace(/: ChatKitOptions/g, '');
+
+  const moduleCode = jsCode + '\nexport default options;';
+  const dataUrl = `data:text/javascript;base64,${Buffer.from(moduleCode).toString('base64')}`;
+
+  const module = await import(dataUrl);
+  return module.default;
+}
+
+// ✅ Return correct base URL
+app.get('/api/base-url', (_req, res) => {
+  res.json({ baseUrl: BASE_URL });
+});
+
+// Serve config (without api section)
+app.get('/api/chatkit/config', async (_req, res) => {
+  try {
+    const config = await loadConfig();
+    const { api, ...configWithoutApi } = config;
+    res.json(configWithoutApi);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to load config' });
+  }
+});
+
+// ✅ Create session
+app.post('/api/chatkit/session', async (req, res) => {
+  try {
+    const { CHATKIT_WORKFLOW_ID } = process.env;
+
+    if (!process.env.OPENAI_API_KEY || !CHATKIT_WORKFLOW_ID) {
+      return res.status(500).json({
+        error: 'Missing OPENAI_API_KEY or CHATKIT_WORKFLOW_ID'
+      });
     }
-  },
-  composer: {
-    attachments: {
-      enabled: true,
-      maxCount: 5,
-      maxSize: 10485760
-    },
-    tools: [
-      {
-        id: 'search_docs',
-        label: 'Search docs',
-        shortLabel: 'Docs',
-        placeholderOverride: 'Search documentation',
-        icon: 'book-open',
-        pinned: false
-      }
-      // ...and 1 more tool
-    ],
-  },
-  startScreen: {
-    greeting: '',
-    prompts: [
-      {
-        icon: 'circle-question',
-        label: 'What is ChatKit?',
-        prompt: 'What is ChatKit?'
-      }
-      // ...and 4 more prompts
-    ],
-  },
-  // Optional fields not shown: locale, initialThread, threadItemActions, header, onClientTool, entities, widgets
-};
+
+    const userId =
+      req.body?.userId ||
+      `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+    const session = await openai.beta.chatkit.sessions.create({
+      user: userId,
+      workflow: { id: CHATKIT_WORKFLOW_ID }
+    });
+
+    res.json({
+      client_secret: session.client_secret,
+      user_id: userId
+    });
+  } catch (error) {
+    console.error('❌ Session Error:', error);
+
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`\n🚀 Server running on port ${PORT}`);
+  console.log(`🌍 BASE URL: ${BASE_URL}`);
+  console.log(
+    `📍 Mode: ${IS_PRODUCTION ? 'PRODUCTION' : 'DEVELOPMENT'}\n`
+  );
+});
