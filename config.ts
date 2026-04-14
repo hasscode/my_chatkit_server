@@ -3,7 +3,7 @@ import type { ChatKitOptions } from "@openai/chatkit";
 const options: ChatKitOptions = {
   api: {
     url: '/api/chat',
-    domainKey: 'development',
+    domainKey: 'domain_pk_69dcec718ca48197be0432ba2aeca51d028c3d3e836f50e5',
   },
   theme: {
     colorScheme: 'dark',
