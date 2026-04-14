@@ -31,8 +31,42 @@ const options: ChatKitOptions = {
           weight: 400,
           style: 'normal',
           display: 'swap'
+        },
+        {
+          family: 'OpenAI Sans',
+          src: 'https://cdn.openai.com/common/fonts/openai-sans/v2/OpenAISans-Italic.woff2',
+          weight: 400,
+          style: 'italic',
+          display: 'swap'
+        },
+        {
+          family: 'OpenAI Sans',
+          src: 'https://cdn.openai.com/common/fonts/openai-sans/v2/OpenAISans-SemiBold.woff2',
+          weight: 600,
+          style: 'normal',
+          display: 'swap'
+        },
+        {
+          family: 'OpenAI Sans',
+          src: 'https://cdn.openai.com/common/fonts/openai-sans/v2/OpenAISans-SemiBoldItalic.woff2',
+          weight: 600,
+          style: 'italic',
+          display: 'swap'
+        },
+        {
+          family: 'OpenAI Sans',
+          src: 'https://cdn.openai.com/common/fonts/openai-sans/v2/OpenAISans-Bold.woff2',
+          weight: 700,
+          style: 'normal',
+          display: 'swap'
+        },
+        {
+          family: 'OpenAI Sans',
+          src: 'https://cdn.openai.com/common/fonts/openai-sans/v2/OpenAISans-BoldItalic.woff2',
+          weight: 700,
+          style: 'italic',
+          display: 'swap'
         }
-      // ...and 7 more font sources
       ]
     }
   },
@@ -51,7 +85,6 @@ const options: ChatKitOptions = {
         icon: 'book-open',
         pinned: false
       }
-      // ...and 1 more tool
     ],
   },
   startScreen: {
@@ -62,8 +95,9 @@ const options: ChatKitOptions = {
         label: 'What is ChatKit?',
         prompt: 'What is ChatKit?'
       }
-      // ...and 4 more prompts
     ],
   },
-  // Optional fields not shown: locale, initialThread, threadItemActions, header, onClientTool, entities, widgets
 };
+
+// السطر ده هو "السر" اللي هيخلي السيرفر يشتغل وما يعملش Crash
+export default options;
