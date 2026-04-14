@@ -95,7 +95,7 @@ app.post('/api/chatkit/session', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT,'0.0.0.0', () => {
   console.log(`\n🚀 ChatKit server running at http://localhost:${PORT}`);
   console.log(`📍 Mode: ${IS_PRODUCTION ? 'PRODUCTION (API only)' : 'DEVELOPMENT (UI enabled)'}\n`);
 });
