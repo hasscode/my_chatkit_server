@@ -67,9 +67,9 @@ app.post('/api/chatkit/session', async (req, res) => {
       client_secret: session.client_secret,
       user_id: userId
     });
-  } catch (error) {
-    console.error("Session Error:", error);
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+ } catch (error: any) {
+    console.error("OpenAI API Error:", error.response?.data || error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
