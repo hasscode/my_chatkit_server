@@ -1,17 +1,17 @@
 /**
- * ChatKit Server
- *
- * Handles authentication and session management for your ChatKit widget.
- * Keeps your OpenAI API key secure by never exposing it to the browser.
+ * ChatKit Server - Optimized for Railway
  */
 
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
-import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+
+// استيراد الإعدادات مباشرة - تأكد من وجود ملف config.ts في نفس المجلد
+// نستخدم .js في الـ import لأن tsx/node بيتعامل معاها كدة في الـ ESM
+import { options } from './config.js';
 
 dotenv.config();
 
@@ -26,33 +26,13 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 app.use(cors());
 app.use(express.json());
 
-// Only serve static files (including index.html) in development
+// التعامل مع الملفات الاستاتيكية
 if (!IS_PRODUCTION) {
   app.use(express.static('.'));
 } else {
-  // In production, block access to index.html
   app.get('/', (req, res) => {
-    res.status(403).send('Access denied. This server only provides API endpoints.');
+    res.status(200).send('ChatKit Server is running...');
   });
-  app.get('/index.html', (req, res) => {
-    res.status(403).send('Access denied. This server only provides API endpoints.');
-  });
-}
-
-// Load config from config.ts
-async function loadConfig() {
-  const configPath = join(__dirname, 'config.ts');
-  const configContent = readFileSync(configPath, 'utf-8');
-
-  const jsCode = configContent
-    .replace(/import type.*from.*;?\s*/g, '')
-    .replace(/: ChatKitOptions/g, '');
-
-  const moduleCode = jsCode + '\nexport default options;';
-  const dataUrl = `data:text/javascript;base64,${Buffer.from(moduleCode).toString('base64')}`;
-
-  const module = await import(dataUrl);
-  return module.default;
 }
 
 // Serve base URL config
@@ -60,13 +40,19 @@ app.get('/api/base-url', (_req, res) => {
   res.json({ baseUrl: process.env.BASE_URL || `http://localhost:${PORT}` });
 });
 
-// Serve config (without api section)
+/**
+ * تحديث: جلب الإعدادات مباشرة من الـ Object المستورد
+ * ده بيحل مشكلة الـ 500 Error الناتجة عن فشل قراءة الملفات في الـ Hosting
+ */
 app.get('/api/chatkit/config', async (_req, res) => {
   try {
-    const config = await loadConfig();
-    const { api, ...configWithoutApi } = config as any;
+    if (!options) {
+        throw new Error("Config options not found");
+    }
+    const { api, ...configWithoutApi } = options as any;
     res.json(configWithoutApi);
   } catch (error) {
+    console.error("Config Error:", error);
     res.status(500).json({ error: 'Failed to load config' });
   }
 });
@@ -74,12 +60,13 @@ app.get('/api/chatkit/config', async (_req, res) => {
 // Create session for user
 app.post('/api/chatkit/session', async (req, res) => {
   try {
-    const { CHATKIT_WORKFLOW_ID } = process.env;
-    if (!process.env.OPENAI_API_KEY || !CHATKIT_WORKFLOW_ID) {
-      return res.status(500).json({ error: 'Missing configuration' });
+    const { CHATKIT_WORKFLOW_ID, OPENAI_API_KEY } = process.env;
+    
+    if (!OPENAI_API_KEY || !CHATKIT_WORKFLOW_ID) {
+      return res.status(500).json({ error: 'Missing Environment Variables' });
     }
 
-    const userId = req.body?.userId || `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const userId = req.body?.userId || `user_${Date.now()}`;
 
     const session = await openai.beta.chatkit.sessions.create({
       user: userId,
@@ -91,11 +78,13 @@ app.post('/api/chatkit/session', async (req, res) => {
       user_id: userId
     });
   } catch (error) {
+    console.error("Session Error:", error);
     res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`\n🚀 ChatKit server running at http://localhost:${PORT}`);
-  console.log(`📍 Mode: ${IS_PRODUCTION ? 'PRODUCTION (API only)' : 'DEVELOPMENT (UI enabled)'}\n`);
+// Listen on 0.0.0.0 for Railway compatibility
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🚀 ChatKit server running at http://0.0.0.0:${PORT}`);
+  console.log(`📍 Mode: ${IS_PRODUCTION ? 'PRODUCTION' : 'DEVELOPMENT'}\n`);
 });
